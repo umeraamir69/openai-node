@@ -1042,7 +1042,15 @@ export class OpenAI {
   }
 
   #normalizeRetries(value: unknown): number {
-    return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 2;
+    if (value === undefined) {
+      return 2;
+    }
+    if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
+      return value;
+    }
+    throw new Errors.OpenAIError(
+      `Invalid \`maxRetries\` value: ${String(value)}. Expected a non-negative integer.`,
+    );
   }
 
   #isSensitiveLogKey(key: string): boolean {

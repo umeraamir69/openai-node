@@ -6,6 +6,7 @@ import {
   APIConnectionTimeoutError,
   APIUserAbortError,
   OAuthError,
+  OpenAIError,
   SubjectTokenProviderError,
 } from 'openai/core/error';
 import { CursorPage } from 'openai/core/pagination';
@@ -36,6 +37,23 @@ async function observe(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe('OpenAI client request behavior', () => {
+  test('defaults maxRetries to 2 when omitted', () => {
+    const client = new OpenAI({ apiKey: 'test-key' });
+    expect(client.maxRetries).toBe(2);
+  });
+
+  test.each([-1, 1.5, NaN, '2', null] as const)('rejects invalid maxRetries: %j', (maxRetries) => {
+    expect(() => new OpenAI({ apiKey: 'test-key', maxRetries: maxRetries as any })).toThrow(OpenAIError);
+  });
+
+  test('rejects invalid per-request maxRetries', async () => {
+    const fetch = vi.fn(async () => jsonResponse({ ok: true }));
+    const client = new OpenAI({ apiKey: 'test-key', maxRetries: 0, fetch });
+
+    await expect(client.get('/models', { maxRetries: -1 as any })).rejects.toBeInstanceOf(OpenAIError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   test('keeps base, endpoint, default, and request queries in precedence order', async () => {
     const fetch = vi.fn(async () => jsonResponse({ ok: true }));
     const client = new OpenAI({
